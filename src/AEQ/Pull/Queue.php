@@ -108,16 +108,20 @@ class Queue
      */
     public function leaseTasks($int_tasks = 1, $int_lease_duration = 30)
     {
+        // Set up the request, response pair
         $obj_request = new TaskQueueQueryAndOwnTasksRequest();
         $obj_response = new TaskQueueQueryAndOwnTasksResponse();
 
+        // Configure the request
         $obj_request
             ->setQueueName($this->str_name)
             ->setMaxTasks($int_tasks)
             ->setLeaseSeconds($int_lease_duration);
 
+        // Make the call
         $this->makeCall('QueryAndOwnTasks', $obj_request, $obj_response);
 
+        // Process the response into Tasks
         $arr_tasks = [];
         foreach($obj_response->getTaskList() as $obj_source_task) {
             $obj_task = new Task();
