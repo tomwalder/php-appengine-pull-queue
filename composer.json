@@ -1,0 +1,29 @@
+{
+    "name": "tomwalder/php-appengine-pull-queue",
+    "type": "library",
+    "description": "Google App Engine Pull Queue Library for PHP",
+    "keywords": ["google", "appengine", "gae", "queue", "pull"],
+    "homepage": "https://github.com/tomwalder/php-appengine-pull-queue",
+    "license": "Apache-2.0",
+    "authors": [
+        {
+            "name": "Tom Walder",
+            "email": "tom@docnet.nu"
+        }
+    ],
+    "require": {
+        "php": ">=5.4.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "~4.0",
+        "satooshi/php-coveralls": "dev-master",
+        "google/appengine-php-sdk": "dev-master"
+    },
+    "autoload": {
+        "classmap": [
+            "src/"
+        ],
+        "psr-4": {"Search\\": "src/Search/"}
+    },
+    "include-path": ["src/"]
+}
