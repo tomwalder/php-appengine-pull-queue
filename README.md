@@ -16,9 +16,16 @@ At the time of writing there is no off-the-shelf way to access this from the PHP
 
 I find examples a great way to decide if I want to even try out a library, so here's a couple for you.
 
+### queue.yaml ###
+
 All the examples assume you have set up a pull queue called `pullqueue` in your `queue.yaml` file.
 
-Details here: https://cloud.google.com/appengine/docs/python/config/queue#Python_Defining_pull_queues
+```yaml
+# My first pull queue
+queue:
+- name: pullqueue
+  mode: pull
+```
 
 ### Add One Task ###
 
@@ -40,10 +47,8 @@ $obj_queue = new \AEQ\Pull\Queue('pullqueue');
 
 // Lease 1 task
 foreach($obj_queue->leaseTasks(1) as $obj_task) {
-   // Do any work we want to 
-   echo $obj_task->getPayload();
-   // Delete the task once done
-   $obj_queue->deleteTask($obj_task);
+   echo $obj_task->getPayload(); // Do any work we want to
+   $obj_queue->deleteTask($obj_task); // Delete the task once done
 }
 ```
 
