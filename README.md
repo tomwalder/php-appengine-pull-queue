@@ -1,3 +1,6 @@
+[![Build Status](https://api.travis-ci.org/tomwalder/php-appengine-pull-queue.svg)](https://travis-ci.org/tomwalder/php-appengine-pull-queue)
+[![Coverage Status](https://coveralls.io/repos/tomwalder/php-appengine-pull-queue/badge.svg)](https://coveralls.io/r/tomwalder/php-appengine-pull-queue)
+
 # Pull Task Queues for PHP on Google App Engine #
 
 This library provides native PHP access to the Google App Engine **PULL** Task Queue.
