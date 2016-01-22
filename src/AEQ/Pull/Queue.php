@@ -45,6 +45,16 @@ class Queue
     }
 
     /**
+     * Get the Queue name
+     *
+     * @return string
+     */
+    public function getName()
+    {
+        return $this->str_name;
+    }
+
+    /**
      * Add a single task
      *
      * @param Task $obj_task
