@@ -2,7 +2,7 @@
     "name": "tomwalder/php-appengine-pull-queue",
     "type": "library",
     "description": "Google App Engine Pull Queue Library for PHP",
-    "keywords": ["google", "appengine", "gae", "queue", "pull"],
+    "keywords": ["google", "appengine", "gae", "queue", "pull", "tasks"],
     "homepage": "https://github.com/tomwalder/php-appengine-pull-queue",
     "license": "Apache-2.0",
     "authors": [
