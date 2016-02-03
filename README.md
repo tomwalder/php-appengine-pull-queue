@@ -55,6 +55,19 @@ foreach($obj_queue->leaseTasks(1) as $obj_task) {
 }
 ```
 
+
+### List Tasks ###
+
+```php
+// Create the queue
+$obj_queue = new \AEQ\Pull\Queue('pullqueue');
+
+// List Tasks
+foreach($obj_queue->listTasks() as $obj_task) {
+   echo $obj_task->getName();
+}
+```
+
 ## Install with Composer ##
 
 To install using Composer, use this require line in your `composer.json` for bleeding-edge features, dev-master
