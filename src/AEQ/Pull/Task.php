@@ -32,6 +32,13 @@ class Task
     protected $str_payload = '';
 
     /**
+     * ETA, seconds since epoch
+     *
+     * @var integer
+     */
+    protected $int_eta = null;
+
+    /**
      * Get the name
      *
      * @return string
@@ -49,6 +56,16 @@ class Task
     public function getPayload()
     {
         return $this->str_payload;
+    }
+
+    /**
+     * Get the task ETA
+     *
+     * @return int
+     */
+    public function getEta()
+    {
+        return $this->int_eta;
     }
 
     /**
@@ -72,6 +89,18 @@ class Task
     public function setPayload($str_payload)
     {
         $this->str_payload = $str_payload;
+        return $this;
+    }
+
+    /**
+     * Set the task ETA
+     *
+     * @param $int_eta
+     * @return $this
+     */
+    public function setEta($int_eta)
+    {
+        $this->int_eta = $int_eta;
         return $this;
     }
 

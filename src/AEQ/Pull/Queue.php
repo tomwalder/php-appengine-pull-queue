@@ -22,10 +22,14 @@ use google\appengine\TaskQueueDeleteRequest;
 use google\appengine\TaskQueueDeleteResponse;
 use google\appengine\TaskQueueQueryAndOwnTasksRequest;
 use google\appengine\TaskQueueQueryAndOwnTasksResponse;
+use google\appengine\TaskQueueQueryTasksRequest;
+use google\appengine\TaskQueueQueryTasksResponse;
 use google\appengine\TaskQueueServiceError\ErrorCode;
 
 class Queue
 {
+
+    const MAX_LIST_ROWS = 100;
 
     /**
      * Name of the queue
@@ -86,7 +90,7 @@ class Queue
             $obj_add_request
                 ->setQueueName($this->str_name)
                 ->setMode(\google\appengine\TaskQueueMode\Mode::PULL)
-                ->setEtaUsec($int_now_usec)
+                ->setEtaUsec(null === $obj_task->getEta() ? $int_now_usec : $obj_task->getEta() * 1e6)
                 ->setTaskName($obj_task->getName())
                 ->setBody($obj_task->getPayload());
         }
@@ -134,9 +138,11 @@ class Queue
         // Process the response into Tasks
         $arr_tasks = [];
         foreach($obj_response->getTaskList() as $obj_source_task) {
+            /** @var \google\appengine\TaskQueueQueryTasksResponse\Task $obj_source_task */
             $obj_task = new Task();
             $obj_task->setName($obj_source_task->getTaskName());
             $obj_task->setPayload($obj_source_task->getBody());
+            $obj_task->setEta($obj_source_task->getEtaUsec() / 1e6);
             $arr_tasks[] = $obj_task;
         }
         return $arr_tasks;
@@ -177,6 +183,32 @@ class Queue
     }
 
     /**
+     * List first 100 tasks from the queue
+     *
+     * @return array
+     */
+    public function listTasks()
+    {
+        $arr_tasks = [];
+        $obj_request = new TaskQueueQueryTasksRequest();
+        $obj_response = new TaskQueueQueryTasksResponse();
+        $obj_request->setQueueName($this->str_name);
+        $obj_request->setMaxRows(self::MAX_LIST_ROWS);
+        $this->makeCall('QueryTasks', $obj_request, $obj_response);
+        if($obj_response->getTaskSize() > 0) {
+            foreach ($obj_response->getTaskList() as $obj_source_task) {
+                /** @var \google\appengine\TaskQueueQueryTasksResponse\Task $obj_source_task */
+                $arr_tasks[] = (new Task())
+                    ->setName($obj_source_task->getTaskName())
+                    ->setPayload($obj_source_task->getBody())
+                    ->setEta($obj_source_task->getEtaUsec() / 1e6)
+                ;
+            }
+        }
+        return $arr_tasks;
+    }
+
+    /**
      * Make a service call
      *
      * @param $str_call
@@ -187,8 +219,8 @@ class Queue
     {
         try {
             ApiProxy::makeSyncCall('taskqueue', $str_call, $obj_request, $obj_response);
-        } catch (ApplicationError $e) {
-            throw new \RuntimeException("Failed to [{$str_call}] with: " . $e->getApplicationError());
+        } catch (ApplicationError $obj_ex) {
+            throw new \RuntimeException("Failed to execute call [{$str_call}] with: {$obj_ex->getApplicationError()} (" . $this->translateResultCode($obj_ex->getApplicationError()) . ")");
         }
     }
 
