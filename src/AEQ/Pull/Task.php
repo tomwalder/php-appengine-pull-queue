@@ -37,6 +37,7 @@ class Task
      * @var integer
      */
     protected $int_eta = null;
+    protected $times_leased = null;
 
     /**
      * Get the name
@@ -66,6 +67,16 @@ class Task
     public function getEta()
     {
         return $this->int_eta;
+    }
+
+    /**
+     * Get the times that this task has been leased
+     *
+     * @return int
+     */
+    public function getTimesLeased()
+    {
+        return $this->times_leased;
     }
 
     /**
@@ -104,4 +115,14 @@ class Task
         return $this;
     }
 
+    /**
+     * Set the times that this task has been leased
+     *
+     * @return $this
+     */
+    public function setTimesLeased($times_leased)
+    {
+        $this->times_leased = $times_leased;
+        return $this;
+    }
 }

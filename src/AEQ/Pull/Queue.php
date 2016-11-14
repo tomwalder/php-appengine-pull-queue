@@ -1,4 +1,5 @@
 <?php namespace AEQ\Pull;
+
 /**
  * Copyright 2016 Tom Walder
  *
@@ -25,6 +26,9 @@ use google\appengine\TaskQueueQueryAndOwnTasksResponse;
 use google\appengine\TaskQueueQueryTasksRequest;
 use google\appengine\TaskQueueQueryTasksResponse;
 use google\appengine\TaskQueueServiceError\ErrorCode;
+use google\appengine\TaskQueueFetchQueueStatsRequest;
+use google\appengine\TaskQueueFetchQueueStatsResponse;
+use google\appengine\TaskQueueFetchQueueStatsResponse\QueueStats;
 
 class Queue
 {
@@ -36,14 +40,14 @@ class Queue
      *
      * @var string
      */
-    protected $str_name = 'pullqueue';
+    protected $str_name;
 
     /**
      * Set the queue name
      *
      * @param string $str_name
      */
-    public function __construct($str_name = 'pullqueue')
+    public function __construct($str_name)
     {
         $this->str_name = $str_name;
     }
@@ -62,7 +66,8 @@ class Queue
      * Add a single task
      *
      * @param Task $obj_task
-     * @return array
+     *
+     * @return string[]|array
      */
     public function addTask(Task $obj_task)
     {
@@ -73,7 +78,8 @@ class Queue
      * Add many tasks
      *
      * @param Task[] $arr_tasks
-     * @return array
+     *
+     * @return string[]|array Added task names
      */
     public function addTasks(array $arr_tasks)
     {
@@ -118,7 +124,8 @@ class Queue
      *
      * @param int $int_tasks
      * @param int $int_lease_duration
-     * @return array
+     *
+     * @return Task[]|array
      */
     public function leaseTasks($int_tasks = 1, $int_lease_duration = 30)
     {
@@ -137,11 +144,12 @@ class Queue
 
         // Process the response into Tasks
         $arr_tasks = [];
-        foreach($obj_response->getTaskList() as $obj_source_task) {
+        foreach ($obj_response->getTaskList() as $obj_source_task) {
             /** @var \google\appengine\TaskQueueQueryTasksResponse\Task $obj_source_task */
             $obj_task = new Task();
             $obj_task->setName($obj_source_task->getTaskName());
             $obj_task->setPayload($obj_source_task->getBody());
+            $obj_task->setTimesLeased($obj_source_task->getRetryCount());
             $obj_task->setEta($obj_source_task->getEtaUsec() / 1e6);
             $arr_tasks[] = $obj_task;
         }
@@ -152,6 +160,7 @@ class Queue
      * Delete a task
      *
      * @param Task $obj_task
+     *
      * @return array
      */
     public function deleteTask(Task $obj_task)
@@ -163,6 +172,7 @@ class Queue
      * Delete an array of one or more tasks
      *
      * @param array $arr_tasks
+     *
      * @return array
      */
     public function deleteTasks(array $arr_tasks)
@@ -170,12 +180,12 @@ class Queue
         $obj_request = new TaskQueueDeleteRequest();
         $obj_response = new TaskQueueDeleteResponse();
         $obj_request->setQueueName($this->str_name);
-        foreach($arr_tasks as $obj_task) {
+        foreach ($arr_tasks as $obj_task) {
             $obj_request->addTaskName($obj_task->getName());
         }
         $this->makeCall('Delete', $obj_request, $obj_response);
-        foreach($obj_response->getResultList() as $int_idx => $int_code) {
-            if($int_code != ErrorCode::OK) {
+        foreach ($obj_response->getResultList() as $int_idx => $int_code) {
+            if ($int_code != ErrorCode::OK) {
                 throw new \RuntimeException($this->translateResultCode($int_code));
             }
         }
@@ -195,17 +205,33 @@ class Queue
         $obj_request->setQueueName($this->str_name);
         $obj_request->setMaxRows(self::MAX_LIST_ROWS);
         $this->makeCall('QueryTasks', $obj_request, $obj_response);
-        if($obj_response->getTaskSize() > 0) {
+        if ($obj_response->getTaskSize() > 0) {
             foreach ($obj_response->getTaskList() as $obj_source_task) {
                 /** @var \google\appengine\TaskQueueQueryTasksResponse\Task $obj_source_task */
                 $arr_tasks[] = (new Task())
                     ->setName($obj_source_task->getTaskName())
                     ->setPayload($obj_source_task->getBody())
-                    ->setEta($obj_source_task->getEtaUsec() / 1e6)
-                ;
+                    ->setEta($obj_source_task->getEtaUsec() / 1e6);
             }
         }
         return $arr_tasks;
+    }
+
+    /**
+     * Get stats from the queue, like the approximate number of non-completed tasks or the number of tasks executed in the last minute.
+     *
+     * @return QueueStats
+     */
+    public function getStats()
+    {
+        $request = new TaskQueueFetchQueueStatsRequest();
+        $response = new  TaskQueueFetchQueueStatsResponse();
+
+        $request->addQueueName($this->str_name);
+
+        $this->makeCall('FetchQueueStats', $request, $response);
+        
+        return $response->getQueueStats(0);
     }
 
     /**
@@ -220,7 +246,9 @@ class Queue
         try {
             ApiProxy::makeSyncCall('taskqueue', $str_call, $obj_request, $obj_response);
         } catch (ApplicationError $obj_ex) {
-            throw new \RuntimeException("Failed to execute call [{$str_call}] with: {$obj_ex->getApplicationError()} (" . $this->translateResultCode($obj_ex->getApplicationError()) . ")");
+            throw new \RuntimeException(
+                "Failed to execute call [{$str_call}] with: {$obj_ex->getApplicationError()} (" . $this->translateResultCode($obj_ex->getApplicationError()) . ")"
+            );
         }
     }
 
@@ -228,39 +256,40 @@ class Queue
      * Translate a return code
      *
      * @param $int_code
+     *
      * @return string
      */
     protected function translateResultCode($int_code)
     {
         $arr_codes = [
-            0 => 'OK',
-            1 => 'UNKNOWN_QUEUE',
-            2 => 'TRANSIENT_ERROR',
-            3 => 'INTERNAL_ERROR',
-            4 => 'TASK_TOO_LARGE',
-            5 => 'INVALID_TASK_NAME',
-            6 => 'INVALID_QUEUE_NAME',
-            7 => 'INVALID_URL',
-            8 => 'INVALID_QUEUE_RATE',
-            9 => 'PERMISSION_DENIED',
-            10 => 'TASK_ALREADY_EXISTS',
-            11 => 'TOMBSTONED_TASK',
-            12 => 'INVALID_ETA',
-            13 => 'INVALID_REQUEST',
-            14 => 'UNKNOWN_TASK',
-            15 => 'TOMBSTONED_QUEUE',
-            16 => 'DUPLICATE_TASK_NAME',
-            17 => 'SKIPPED',
-            18 => 'TOO_MANY_TASKS',
-            19 => 'INVALID_PAYLOAD',
-            20 => 'INVALID_RETRY_PARAMETERS',
-            21 => 'INVALID_QUEUE_MODE',
-            22 => 'ACL_LOOKUP_ERROR',
-            23 => 'TRANSACTIONAL_REQUEST_TOO_LARGE',
-            24 => 'INCORRECT_CREATOR_NAME',
-            25 => 'TASK_LEASE_EXPIRED',
-            26 => 'QUEUE_PAUSED',
-            27 => 'INVALID_TAG',
+            0    => 'OK',
+            1    => 'UNKNOWN_QUEUE',
+            2    => 'TRANSIENT_ERROR',
+            3    => 'INTERNAL_ERROR',
+            4    => 'TASK_TOO_LARGE',
+            5    => 'INVALID_TASK_NAME',
+            6    => 'INVALID_QUEUE_NAME',
+            7    => 'INVALID_URL',
+            8    => 'INVALID_QUEUE_RATE',
+            9    => 'PERMISSION_DENIED',
+            10   => 'TASK_ALREADY_EXISTS',
+            11   => 'TOMBSTONED_TASK',
+            12   => 'INVALID_ETA',
+            13   => 'INVALID_REQUEST',
+            14   => 'UNKNOWN_TASK',
+            15   => 'TOMBSTONED_QUEUE',
+            16   => 'DUPLICATE_TASK_NAME',
+            17   => 'SKIPPED',
+            18   => 'TOO_MANY_TASKS',
+            19   => 'INVALID_PAYLOAD',
+            20   => 'INVALID_RETRY_PARAMETERS',
+            21   => 'INVALID_QUEUE_MODE',
+            22   => 'ACL_LOOKUP_ERROR',
+            23   => 'TRANSACTIONAL_REQUEST_TOO_LARGE',
+            24   => 'INCORRECT_CREATOR_NAME',
+            25   => 'TASK_LEASE_EXPIRED',
+            26   => 'QUEUE_PAUSED',
+            27   => 'INVALID_TAG',
             1000 => 'DATASTORE_ERROR'
         ];
         return (isset($arr_codes[$int_code]) ? $arr_codes[$int_code] : 'UNKNOWN');
